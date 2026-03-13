@@ -15,7 +15,7 @@ const app = express();
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:5173',
-  'https://split-ease-pink.vercel.app/',
+  'https://split-ease-pink.vercel.app',
   process.env.FRONTEND_URL,        // e.g. https://splitease.vercel.app
 ].filter(Boolean);                 // removes undefined if FRONTEND_URL not set
 
@@ -28,6 +28,8 @@ app.use(cors({
   },
   credentials: true,
 }));
+
+app.options('*', cors());
 
 app.use(express.json());
 app.get("/", (req, res) => {
