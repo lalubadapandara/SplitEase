@@ -1,64 +1,74 @@
 const express = require('express');
-const router = express.Router();
-const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const router  = express.Router();
+const jwt     = require('jsonwebtoken');
+const User    = require('../models/User');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'splitease_secret_key_2024';
+// Always read from environment — never use a hardcoded fallback in production
+const JWT_SECRET = process.env.JWT_SECRET;
 
-// Register
+function makeToken(userId) {
+  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: '7d' });
+}
+
+// ── REGISTER ──────────────────────────────────────────────────────
 router.post('/register', async (req, res) => {
   try {
     const { name, email, password } = req.body;
     if (!name || !email || !password)
-      return res.status(400).json({ message: 'All fields required' });
+      return res.status(400).json({ message: 'All fields are required' });
+    if (password.length < 6)
+      return res.status(400).json({ message: 'Password must be at least 6 characters' });
 
-    const existing = await User.findOne({ email });
-    if (existing) return res.status(400).json({ message: 'Email already registered' });
+    const existing = await User.findOne({ email: email.toLowerCase() });
+    if (existing)
+      return res.status(400).json({ message: 'Email already registered' });
 
-    const user = new User({ name, email, password });
+    const user = new User({ name: name.trim(), email: email.toLowerCase(), password });
     await user.save();
 
-    const token = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: '7d' });
+    const token = makeToken(user._id);
     res.status(201).json({ token, user });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
 
-// Login
+// ── LOGIN ─────────────────────────────────────────────────────────
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    const user = await User.findOne({ email });
-    if (!user) return res.status(400).json({ message: 'Invalid credentials' });
+    if (!email || !password)
+      return res.status(400).json({ message: 'Email and password are required' });
+
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user)
+      return res.status(400).json({ message: 'Invalid email or password' });
 
     const isMatch = await user.comparePassword(password);
-    if (!isMatch) return res.status(400).json({ message: 'Invalid credentials' });
+    if (!isMatch)
+      return res.status(400).json({ message: 'Invalid email or password' });
 
-    const token = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: '7d' });
+    const token = makeToken(user._id);
     res.json({ token, user });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
 
-module.exports = router;
-
-
-// Google OAuth - verify id_token from frontend
+// ── GOOGLE OAUTH ──────────────────────────────────────────────────
 router.post('/google', async (req, res) => {
   try {
-    const { idToken, name, email, googleId } = req.body;
-    if (!email) return res.status(400).json({ message: 'Email required from Google' });
+    const { name, email, googleId } = req.body;
+    if (!email)
+      return res.status(400).json({ message: 'Email is required' });
 
-    const User = require('../models/User');
-    let user = await User.findOne({ email });
+    let user = await User.findOne({ email: email.toLowerCase() });
     if (!user) {
-      // Create account automatically for new Google users
+      // New user — create account automatically
       user = new User({
         name: name || email.split('@')[0],
-        email,
-        password: 'google_oauth_' + googleId + '_' + Date.now(), // non-guessable
+        email: email.toLowerCase(),
+        password: 'google_' + googleId + '_' + Date.now(),
         googleId,
       });
       await user.save();
@@ -67,9 +77,11 @@ router.post('/google', async (req, res) => {
       await user.save();
     }
 
-    const token = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: '7d' });
+    const token = makeToken(user._id);
     res.json({ token, user });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
+
+module.exports = router;

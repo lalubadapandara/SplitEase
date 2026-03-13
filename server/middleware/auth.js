@@ -1,18 +1,18 @@
-const jwt = require('jsonwebtoken');
+const jwt  = require('jsonwebtoken');
 const User = require('../models/User');
-
-const JWT_SECRET = process.env.JWT_SECRET || 'splitease_secret_key_2024';
 
 module.exports = async (req, res, next) => {
   const token = req.header('Authorization')?.replace('Bearer ', '');
-  if (!token) return res.status(401).json({ message: 'No token, authorization denied' });
+  if (!token)
+    return res.status(401).json({ message: 'No token — please log in' });
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = await User.findById(decoded.userId).select('-password');
-    if (!req.user) return res.status(401).json({ message: 'User not found' });
+    if (!req.user)
+      return res.status(401).json({ message: 'User not found' });
     next();
   } catch (err) {
-    res.status(401).json({ message: 'Token is not valid' });
+    res.status(401).json({ message: 'Token is invalid or expired — please log in again' });
   }
 };

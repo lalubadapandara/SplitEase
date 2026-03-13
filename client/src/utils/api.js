@@ -1,16 +1,24 @@
 import axios from 'axios'
 
+// ─────────────────────────────────────────────────────────────────────
+//  BASE URL LOGIC
+//  • Local dev  → Vite proxy forwards /api → localhost:5000  (no env needed)
+//  • Production → VITE_API_URL must be set in Vercel to your Render URL
+//                 e.g.  https://splitease-api.onrender.com/api
+// ─────────────────────────────────────────────────────────────────────
 const axiosInstance = axios.create({
-  baseURL: '/api',
+  baseURL: import.meta.env.VITE_API_URL || '/api',
   headers: { 'Content-Type': 'application/json' },
 })
 
+// Attach JWT token to every request automatically
 axiosInstance.interceptors.request.use((config) => {
   const token = localStorage.getItem('token')
   if (token) config.headers.Authorization = `Bearer ${token}`
   return config
 })
 
+// Global response error handling
 axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -19,38 +27,40 @@ axiosInstance.interceptors.response.use(
       localStorage.removeItem('user')
       window.location.href = '/login'
     }
-    return Promise.reject(error.response?.data?.message || error.message || 'Something went wrong')
+    return Promise.reject(
+      error.response?.data?.message || error.message || 'Something went wrong'
+    )
   }
 )
 
 export const authAPI = {
-  register: (data)    => axiosInstance.post('/auth/register', data),
-  login:    (data)    => axiosInstance.post('/auth/login', data),
-  google:   (data)    => axiosInstance.post('/auth/google', data),
+  register: (data) => axiosInstance.post('/auth/register', data),
+  login:    (data) => axiosInstance.post('/auth/login',    data),
+  google:   (data) => axiosInstance.post('/auth/google',   data),
 }
 
 export const usersAPI = {
-  getMe:    ()        => axiosInstance.get('/users/me'),
-  updateMe: (data)    => axiosInstance.put('/users/me', data),
-  search:   (email)   => axiosInstance.get(`/users/search?email=${encodeURIComponent(email)}`),
+  getMe:    ()       => axiosInstance.get('/users/me'),
+  updateMe: (data)   => axiosInstance.put('/users/me', data),
+  search:   (email)  => axiosInstance.get(`/users/search?email=${encodeURIComponent(email)}`),
 }
 
 export const groupsAPI = {
-  getAll:      ()            => axiosInstance.get('/groups'),
-  getById:     (id)          => axiosInstance.get(`/groups/${id}`),
-  create:      (data)        => axiosInstance.post('/groups', data),
-  addMember:   (id, email)   => axiosInstance.post(`/groups/${id}/members`, { email }),
-  getBalances: (id)          => axiosInstance.get(`/groups/${id}/balances`),
-  delete:      (id)          => axiosInstance.delete(`/groups/${id}`),
+  getAll:      ()           => axiosInstance.get('/groups'),
+  getById:     (id)         => axiosInstance.get(`/groups/${id}`),
+  create:      (data)       => axiosInstance.post('/groups', data),
+  addMember:   (id, email)  => axiosInstance.post(`/groups/${id}/members`, { email }),
+  getBalances: (id)         => axiosInstance.get(`/groups/${id}/balances`),
+  delete:      (id)         => axiosInstance.delete(`/groups/${id}`),
 }
 
 export const expensesAPI = {
-  getByGroup:          (groupId) => axiosInstance.get(`/expenses/group/${groupId}`),
-  getMy:               ()        => axiosInstance.get('/expenses/my'),
-  getDashboardSummary: ()        => axiosInstance.get('/expenses/dashboard/summary'),
-  create:              (data)    => axiosInstance.post('/expenses', data),
-  update:              (id, data) => axiosInstance.put(`/expenses/${id}`, data),
-  delete:              (id)      => axiosInstance.delete(`/expenses/${id}`),
+  getByGroup:          (groupId)    => axiosInstance.get(`/expenses/group/${groupId}`),
+  getMy:               ()           => axiosInstance.get('/expenses/my'),
+  getDashboardSummary: ()           => axiosInstance.get('/expenses/dashboard/summary'),
+  create:              (data)       => axiosInstance.post('/expenses', data),
+  update:              (id, data)   => axiosInstance.put(`/expenses/${id}`, data),
+  delete:              (id)         => axiosInstance.delete(`/expenses/${id}`),
 }
 
 export const settlementsAPI = {
